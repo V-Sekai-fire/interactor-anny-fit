@@ -45,6 +45,7 @@ constexpr double HUBER = 0.25;
 rdc::Device g_dev;
 std::vector<uint8_t> g_blob;
 std::string g_targets, g_labels;
+std::string g_stage; // the last step anny_fit_start reached, read by anny_stage after a failed call
 
 struct Gpu {
 	::RID coeffs, outbw;
@@ -74,7 +75,11 @@ struct Job {
 	double f0 = 0, f_last = 0;
 	int ticks = 0, evals = 0;
 	std::string backend;
-} g_job;
+};
+// The job lives on the heap and is made when a fit starts: a static Job would allocate (its body buffer) while the guest's static
+// initialisers run, and the sandbox allocator calls freeing that block "a possible double free" when the job is replaced.
+Job *g_job_ptr = nullptr;
+#define g_job (*g_job_ptr)
 
 Variant text(const std::string &s) {
 	return Variant(String(s));
@@ -141,7 +146,7 @@ bool gpu_setup(std::string &err) {
 		g_gpu.set[k] = g_dev.uniform_set(g_gpu.shader[k], bd);
 		g_gpu.groups[k] = (threads[k] + 63) / 64;
 		if (!g_gpu.pipeline[k].index == 0 || g_gpu.set[k].index == 0) {
-			err = "pipeline " + std::to_string(k) + ": " + g_dev.error();
+			err = "kernel " + std::to_string(k) + " shader=" + std::to_string(g_gpu.shader[k].index) + " pipeline=" + std::to_string(g_gpu.pipeline[k].index) + " set=" + std::to_string(g_gpu.set[k].index) + " bindings=" + std::to_string(bd.size()) + " spv=" + std::to_string(spv_bytes[k]) + ": " + g_dev.error();
 			return false;
 		}
 	}
@@ -194,6 +199,10 @@ void finish() {
 	g_job.solver->readX(g_job.x);
 }
 
+Variant anny_stage() {
+	return text(g_stage);
+}
+
 Variant anny_data_clear() {
 	g_blob.clear();
 	g_blob.shrink_to_fit();
@@ -220,7 +229,11 @@ Variant anny_data_put(String key_s, PackedArray<uint8_t> bytes) {
 
 // config: "sliders=a,b;narrow=1;vec=rd;iters=100": slider label substrings to free, narrow to the SOMA-X set, the vector backend, iteration cap.
 Variant anny_fit_start(String config_s) {
-	g_job = Job();
+	g_stage = "start";
+	delete g_job_ptr;
+	g_job_ptr = new Job();
+	g_stage = "job reset";
+	g_stage = "parse";
 	std::string sliders, vec = "rd";
 	bool narrow = false;
 	int iters = 100;
@@ -238,16 +251,20 @@ Variant anny_fit_start(String config_s) {
 			iters = std::atoi(v.c_str());
 		}
 	}
+	g_stage = "parsed config";
 	if (g_blob.size() != size_t(PH_BIN_BYTES)) {
 		return text("FAIL pheno asset is " + std::to_string(g_blob.size()) + " bytes, expected " + std::to_string(PH_BIN_BYTES));
 	}
 	g_job.mask.assign(reinterpret_cast<const float *>(g_blob.data() + PH_OFF_mask), reinterpret_cast<const float *>(g_blob.data() + PH_OFF_mask) + size_t(PH_NPH) * PH_NVAR);
+	g_stage = "mask copied";
 	std::string err;
 	if (!gpu_setup(err)) {
 		return text("FAIL " + err);
 	}
+	g_stage = "gpu ready";
 	g_blob.clear();
 	g_blob.shrink_to_fit();
+	g_stage = "blob dropped";
 	// targets
 	for (std::istringstream ts(g_targets); ts;) {
 		Seg s;
@@ -288,6 +305,7 @@ Variant anny_fit_start(String config_s) {
 		g_job.x0[i] = 0.0f;
 		g_job.lb[i] = -1.0f;
 	}
+	g_stage = "variables";
 	g_job.backend = vec;
 	if (vec == "rd") {
 		auto v = std::make_unique<VecRd>(g_dev);
@@ -310,7 +328,10 @@ Variant anny_fit_start(String config_s) {
 
 // One host frame: finish the evaluation submitted last frame, or take the next step.
 Variant anny_fit_tick() {
-	if (!g_job.active) {
+	if (!g_job_ptr || !g_job.active) {
+		if (!g_job_ptr) {
+			return text("IDLE");
+		}
 		return text(g_job.done ? "DONE" : "IDLE");
 	}
 	++g_job.ticks;
@@ -379,6 +400,9 @@ Variant anny_fit_tick() {
 }
 
 Variant anny_fit_report() {
+	if (!g_job_ptr) {
+		return text("no fit");
+	}
 	std::ostringstream o;
 	const char *names[11] = { "gender", "age", "muscle", "weight", "height", "proportions", "cupsize", "firmness", "african", "asian", "caucasian" };
 	o << "backend=" << g_job.backend << " iterations=" << g_job.solver->iterations() << " evaluations=" << g_job.evals << " ticks=" << g_job.ticks << " objective " << g_job.f0
@@ -397,6 +421,7 @@ Variant anny_fit_report() {
 } // namespace
 
 int main() {
+	ADD_API_FUNCTION(anny_stage, "String", "", "The last step anny_fit_start reached");
 	ADD_API_FUNCTION(anny_data_clear, "int", "", "Drop the uploaded asset and texts");
 	ADD_API_FUNCTION(anny_data_put, "int", "String key, PackedByteArray bytes", "Append pheno (soma_pheno.bin in order), targets or labels; the byte count held for pheno");
 	ADD_API_FUNCTION(anny_fit_start, "String", "String config", "Start a fit: sliders=a,b;narrow=0|1;vec=rd|cpu;iters=N");
