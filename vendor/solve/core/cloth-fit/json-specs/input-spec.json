@@ -1,0 +1,392 @@
+[
+  {
+    "pointer": "/",
+    "type": "object",
+    "required": [
+      "avatar_mesh_path",
+      "garment_mesh_path",
+      "no_fit_spec_path",
+      "source_skeleton_path",
+      "target_skeleton_path",
+      "fit_weight",
+      "curve_center_target_weight"
+    ],
+    "optional": [
+      "units",
+      "common",
+      "root_path",
+      "contact",
+      "solver",
+      "output",
+      "is_skirt",
+      "voxel_size",
+      "incremental_steps",
+      "avatar_skin_weights_path",
+      "symmetry_weight",
+      "twist_penalty_weight",
+      "curvature_penalty_weight",
+      "similarity_penalty_weight",
+      "curve_size_weight"
+    ],
+    "doc": "Root of the configuration file."
+  },
+  {
+    "pointer": "/incremental_steps",
+    "default": 1,
+    "type": "int",
+    "min": 1,
+    "doc": "If this value is larger than 1, instead of directly optimizing towards the target avatar directly, the optimization is divided into a number of substeps to gradually optimize towards the target. Larger values may be useful when the target avatar is very different from the original avatar."
+  },
+  {
+    "pointer": "/is_skirt",
+    "type": "bool",
+    "default": false,
+    "doc": "Set this value to true if the garment is a skirt. This option will insert an extra skeleton bone in the middle of two legs, which helps to enforce the positional constraint on the hemline of the skirt."
+  },
+  {
+    "pointer": "/voxel_size",
+    "type": "float",
+    "default": 0.01,
+    "doc": "The voxel size of the signed distance field representing the target avatar. The avatars are scaled to unit size."
+  },
+  {
+    "pointer": "/avatar_skin_weights_path",
+    "default": "",
+    "type": "file",
+    "doc": "The path to the file that stores the skinning weights of the target avatar. The skinning weights should be a matrix of size #number_of_skeleton_nodes times #number_of_vertices. The skinning weights will be used to project the target avatar to its skeleton. If this file is not provided, the vertices will be simply projected to the closest bone in distance."
+  },
+  {
+    "pointer": "/avatar_mesh_path",
+    "type": "file",
+    "extensions": [".obj", ".usd", ".usda", ".usdc"],
+    "doc": "The path to the target avatar mesh. The target avatar mesh should be one or multiple closed surfaces, so that it can be converted to a signed distance field by OpenVDB."
+  },
+  {
+    "pointer": "/garment_mesh_path",
+    "type": "file",
+    "extensions": [".obj", ".usd", ".usda", ".usdc"],
+    "doc": "The path to the source garment mesh. The garment mesh should be a connected manifold triangular mesh."
+  },
+  {
+    "pointer": "/no_fit_spec_path",
+    "type": "file",
+    "extensions": [".obj"],
+    "doc": "The path to a text file with a list of vertex IDs indicating the faces on the source garment mesh that should not fit tightly to the avatar."
+  },
+  {
+    "pointer": "/source_skeleton_path",
+    "type": "file",
+    "extensions": [".obj"],
+    "doc": "The path to the skeleton mesh of the source avatar. The skeleton connectivity should be exactly the same for the source and target avatars."
+  },
+  {
+    "pointer": "/target_skeleton_path",
+    "type": "file",
+    "extensions": [".obj"],
+    "doc": "The path to the skeleton mesh of the target avatar. The skeleton connectivity should be exactly the same for the source and target avatars."
+  },
+  {
+    "pointer": "/fit_weight",
+    "type": "float",
+    "min": 0,
+    "doc": "The weight controlling how tight does the garment fit on the avatar."
+  },
+  {
+    "pointer": "/curve_center_target_weight",
+    "type": "float",
+    "min": 0,
+    "doc": "The weight of enforcing the positional constraints on curve loops, e.g. hem, collar, cuff."
+  },
+  {
+    "pointer": "/symmetry_weight",
+    "type": "float",
+    "default": 0,
+    "min": 0,
+    "doc": "The weight of enforcing symmetry on originally symmetric garment curve loops, e.g. collar."
+  },
+  {
+    "pointer": "/twist_penalty_weight",
+    "type": "float",
+    "min": 0,
+    "default": 0,
+    "doc": "The weight of preserving torsion on the curve loops."
+  },
+  {
+    "pointer": "/curvature_penalty_weight",
+    "type": "float",
+    "min": 0,
+    "default": 0,
+    "doc": "The weight of preserving curvature on the curve loops."
+  },
+  {
+    "pointer": "/similarity_penalty_weight",
+    "type": "float",
+    "default": 1,
+    "min": 0,
+    "doc": "The weight of preserving surface geometry."
+  },
+  {
+    "pointer": "/curve_size_weight",
+    "type": "float",
+    "default": 0,
+    "min": 0,
+    "doc": "The weight of penalizing the curve loop size, for cases like the collar being much wider than the neck."
+  },
+  {
+    "pointer": "/common",
+    "default": "",
+    "type": "file",
+    "extensions": [".json"],
+    "doc": "Path to common settings will patch the current file."
+  },
+  {
+    "pointer": "/root_path",
+    "default": "",
+    "type": "string",
+    "doc": "Path for all relative paths, set automatically to the folder containing this JSON."
+  },
+  {
+    "pointer": "/units",
+    "default": null,
+    "type": "object",
+    "optional": ["length", "mass", "time", "characteristic_length"],
+    "doc": "Basic units used in the code."
+  },
+  {
+    "pointer": "/units/length",
+    "default": "m",
+    "type": "string",
+    "doc": "Length unit."
+  },
+  {
+    "pointer": "/units/mass",
+    "default": "kg",
+    "type": "string",
+    "doc": "Mass unit."
+  },
+  {
+    "pointer": "/units/time",
+    "default": "s",
+    "type": "string",
+    "doc": "Time unit."
+  },
+  {
+    "pointer": "/units/characteristic_length",
+    "default": 1,
+    "type": "float",
+    "doc": "Characteristic length, used for tolerances."
+  },
+  {
+    "pointer": "/tests",
+    "default": null,
+    "type": "object",
+    "optional": [
+      "err_h1",
+      "err_h1_semi",
+      "err_l2",
+      "err_linf",
+      "err_linf_grad",
+      "err_lp",
+      "margin",
+      "time_steps"
+    ],
+    "doc": "Used to test to compare different norms of solutions."
+  },
+  {
+    "pointer": "/contact",
+    "default": null,
+    "type": "object",
+    "optional": ["enabled", "dhat"],
+    "doc": "Contact handling parameters."
+  },
+  {
+    "pointer": "/contact/enabled",
+    "default": false,
+    "type": "bool",
+    "doc": "True if contact handling is enabled."
+  },
+  {
+    "pointer": "/contact/dhat",
+    "default": 0.002,
+    "min": 0,
+    "type": "float",
+    "doc": "Contact barrier activation distance."
+  },
+  {
+    "pointer": "/solver",
+    "type": "include",
+    "spec_file": "polysolve.json",
+    "doc": "Settings for the solver."
+  },
+  {
+    "pointer": "/solver",
+    "default": null,
+    "type": "object",
+    "optional": [
+      "max_threads",
+      "linear",
+      "nonlinear",
+      "augmented_lagrangian",
+      "contact"
+    ],
+    "doc": "The settings for the solver including linear solver, nonlinear solver, and some advanced options."
+  },
+  {
+    "pointer": "/solver/max_threads",
+    "default": 16,
+    "type": "int",
+    "min": 0,
+    "doc": "Maximum number of threads used; 0 is unlimited."
+  },
+  {
+    "pointer": "/solver/augmented_lagrangian",
+    "default": null,
+    "type": "object",
+    "optional": [
+      "initial_weight",
+      "scaling",
+      "max_weight",
+      "eta",
+      "error_threshold",
+      "nonlinear"
+    ],
+    "doc": "Parameters for the AL for imposing Dirichlet BCs. If the bc are not imposable, we add $w\\|u - bc\\|^2$ to the energy ($u$ is the solution at the Dirichlet nodes and $bc$ are the Dirichlet values). After convergence, we try to impose bc again. The algorithm computes E + a/2*AL^2 - lambda AL, where E is the current energy (elastic, inertia, contact, etc.) and AL is the augmented Lagrangian energy. a starts at `initial_weight` and, in case DBC cannot be imposed, we update a as `a *= scaling` until `max_weight`. See IPC additional material"
+  },
+  {
+    "pointer": "/solver/augmented_lagrangian/nonlinear",
+    "type": "include",
+    "spec_file": "nonlinear-solver-spec.json",
+    "doc": "Settings for nonlinear solver in augmented lagrangian."
+  },
+  {
+    "pointer": "/solver/augmented_lagrangian/initial_weight",
+    "default": 1e6,
+    "min": 0,
+    "type": "float",
+    "doc": "Initial weight for AL"
+  },
+  {
+    "pointer": "/solver/augmented_lagrangian/error",
+    "default": 1e-2,
+    "min": 0,
+    "type": "float",
+    "doc": "Don't stop AL unless the error is smaller than this number."
+  },
+  {
+    "pointer": "/solver/augmented_lagrangian/scaling",
+    "default": 2.0,
+    "type": "float",
+    "doc": "Multiplication factor"
+  },
+  {
+    "pointer": "/solver/augmented_lagrangian/max_weight",
+    "default": 1e8,
+    "type": "float",
+    "doc": "Maximum weight"
+  },
+  {
+    "pointer": "/solver/augmented_lagrangian/eta",
+    "default": 0.99,
+    "min": 0,
+    "max": 1,
+    "type": "float",
+    "doc": "Tolerance for increasing the weight or updating the lagrangian"
+  },
+  {
+    "pointer": "/solver/augmented_lagrangian/error_threshold",
+    "default": 1e-2,
+    "min": 0,
+    "type": "float",
+    "doc": "Error tolerance for enforcing the constraints directly"
+  },
+  {
+    "pointer": "/solver/contact",
+    "default": null,
+    "type": "object",
+    "optional": ["CCD", "barrier_stiffness"],
+    "doc": "Settings for contact handling in the solver."
+  },
+  {
+    "pointer": "/solver/contact/CCD",
+    "default": null,
+    "type": "object",
+    "optional": ["broad_phase", "tolerance", "max_iterations"],
+    "doc": "CCD options"
+  },
+  {
+    "pointer": "/solver/contact/CCD/broad_phase",
+    "default": "hash_grid",
+    "type": "string",
+    "options": [
+      "hash_grid",
+      "HG",
+      "brute_force",
+      "BF",
+      "spatial_hash",
+      "SH",
+      "bvh",
+      "BVH",
+      "sweep_and_prune",
+      "SAP",
+      "sweep_and_tiniest_queue",
+      "STQ"
+    ],
+    "doc": "Broad phase collision-detection algorithm to use"
+  },
+  {
+    "pointer": "/solver/contact/CCD/tolerance",
+    "default": 1e-6,
+    "type": "float",
+    "doc": "CCD tolerance"
+  },
+  {
+    "pointer": "/solver/contact/CCD/max_iterations",
+    "default": 1000000,
+    "type": "int",
+    "doc": "Maximum number of iterations for continuous collision detection"
+  },
+  {
+    "pointer": "/solver/contact/barrier_stiffness",
+    "default": 1e8,
+    "type": "float",
+    "doc": "The coefficient of clamped log-barrier function value when not adaptive"
+  },
+  {
+    "pointer": "/output",
+    "default": null,
+    "type": "object",
+    "optional": ["directory", "log", "skip_frame", "format"],
+    "doc": "output settings"
+  },
+  {
+    "pointer": "/output/format",
+    "default": "obj",
+    "type": "string",
+    "options": ["obj", "usd"],
+    "doc": "Output mesh format: \"obj\" (per-step .obj, default) or \"usd\" (per-step .usda). USD requires a build with OpenUSD support."
+  },
+  {
+    "pointer": "/output/directory",
+    "default": ".",
+    "type": "string",
+    "doc": "Directory for output files."
+  },
+  {
+    "pointer": "/output/log",
+    "spec_file": "log.json",
+    "type": "include",
+    "doc": "Setting for the output log."
+  },
+  {
+    "pointer": "/output/skip_frame",
+    "default": 1,
+    "type": "int",
+    "doc": "export every skip_frame-th frames for time dependent simulations"
+  },
+  {
+    "pointer": "/curve_center_target_automatic_bone_generation",
+    "type": "bool",
+    "default": false,
+    "doc": "Set this value to true if the bone used by curve center target is automatically generated if more than 1 bone intersects with the plane fit to the curve loops (hem, collar, cuff, etc.)"
+  }
+]

@@ -1,0 +1,36 @@
+cff-version: 1.2.0
+message: If you use these fixtures, cite LBFGSpp and Eigen, which produce them.
+title: L-BFGS-B oracle generator (host-native test, not vendored)
+abstract: >-
+  gen.cpp is written here; nothing is vendored. build.sh clones
+  V-Sekai-fire/interactor-aria-lbfgspp at the pinned commit into .deps/
+  (gitignored) and compiles gen.cpp against its thirdparty/LBFGSpp/include
+  (LBFGSpp 0.3.0, MIT; include/ byte-identical to the copy in
+  cloth-dynamics external/LBFGSpp) and its thirdparty/eigen (Eigen 3.4.90,
+  MPL-2.0). Both are used unmodified and only by this host-native tool, whose
+  outputs are the text fixtures in gates/5-drape/oracle/; neither library is
+  linked into any guest ELF. Local adaptation: gen.cpp wraps the LBFGSB.h
+  include in `#define private public` to read LBFGSBSolver::max_step_size,
+  proj_grad_norm and BFGSMat::m_ptr without copying or editing the headers.
+type: software
+authors:
+  - name: V-Sekai-fire
+  - name: chibifire
+repository-code: https://github.com/V-Sekai-fire/interactor-aria-lbfgspp
+commit: 10086b6b2022802d7942ba16842c43063b3cff91
+license: MIT
+references:
+  - type: software
+    title: LBFGSpp (thirdparty/LBFGSpp, v0.3.0)
+    authors:
+      - name: Yixuan Qiu
+    repository-code: https://github.com/V-Sekai-fire/interactor-aria-lbfgspp
+    commit: 10086b6b2022802d7942ba16842c43063b3cff91
+    license: MIT
+  - type: software
+    title: Eigen (thirdparty/eigen, 3.4.90)
+    authors:
+      - name: Eigen contributors
+    repository-code: https://github.com/V-Sekai-fire/interactor-aria-lbfgspp
+    commit: 10086b6b2022802d7942ba16842c43063b3cff91
+    license: MPL-2.0

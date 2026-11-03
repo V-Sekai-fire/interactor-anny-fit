@@ -1,0 +1,72 @@
+{
+  "incremental_steps": 1,
+  "avatar_mesh_path": "../assets/avatars/Goblin/avatar.obj",
+  "target_skeleton_path": "../assets/avatars/Goblin/skeleton.obj",
+  "avatar_skin_weights_path": "../assets/avatars/Goblin/skin.txt",
+  "garment_mesh_path": "../assets/garments/jumpsuit_dense/garment.obj",
+  "no_fit_spec_path": "",
+  "source_skeleton_path": "../assets/garments/jumpsuit_dense/skeleton.obj",
+  "similarity_penalty_weight": 1,
+  "curvature_penalty_weight": 0.01,
+  "twist_penalty_weight": 0.01,
+  "curve_center_target_weight": 1,
+  "fit_weight": 2,
+  "symmetry_weight": 0,
+  "curve_size_weight": 0,
+  "voxel_size": 0.01,
+  "curve_center_target_automatic_bone_generation": true,
+  "contact": {
+    "enabled": true,
+    "dhat": 0.002
+  },
+  "solver": {
+    "max_threads": 16,
+    "linear": {
+      "solver": [
+        "Eigen::PardisoLDLT",
+        "Eigen::AccelerateLDLT",
+        "Eigen::SimplicialLDLT"
+      ]
+    },
+    "augmented_lagrangian": {
+      "initial_weight": 1,
+      "max_weight": 1000000.0,
+      "eta": 1,
+      "nonlinear": {
+        "grad_norm": 1,
+        "max_iterations": 50
+      }
+    },
+    "nonlinear": {
+      "Newton": {
+        "use_psd_projection": true,
+        "use_psd_projection_in_regularized": true,
+        "reg_weight_max": 1e16,
+        "reg_weight_min": 1,
+        "reg_weight_inc": 10000.0
+      },
+      "grad_norm": 0.01,
+      "line_search": {
+        "max_step_size_limiter": 0.5,
+        "use_grad_norm_tol": 1e-4,
+        "method": "Backtracking",
+        "min_step_size": 1e-8
+      },
+      "max_iterations": 5000
+    },
+    "contact": {
+      "CCD": {
+        "broad_phase": "BVH",
+        "max_iterations": 200,
+        "tolerance": 1e-3
+      },
+      "barrier_stiffness": 1e8
+    }
+  },
+  "output": {
+    "skip_frame": 2,
+    "log": {
+      "level": "debug"
+    }
+  }
+}

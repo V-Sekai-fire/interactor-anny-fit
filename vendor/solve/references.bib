@@ -1,0 +1,246 @@
+% References for the sinew project.
+% Focus: IMU/magneto-inertial body-segment length estimation, functional
+% (sensor-to-segment) calibration, and anthropometric scaling — backing the
+% bone-length discovery procedure (closure poses + HMD scale anchor).
+
+% --- Subject-specific segment-length estimation from inertial sensing ---------
+
+@article{crabolu2018humerus,
+  author  = {Crabolu, Michele and Pani, Danilo and Raffo, Luigi and Conti, Marco and Cereatti, Andrea},
+  title   = {Functional estimation of bony segment lengths using magneto-inertial sensing: Application to the humerus},
+  journal = {PLoS ONE},
+  year    = {2018},
+  volume  = {13},
+  number  = {9},
+  pages   = {e0203861},
+  doi     = {10.1371/journal.pone.0203861},
+  note    = {Estimates an individual segment length in vivo from MIMU calibration exercises (shoulder elevation + elbow flexion) by locating the two joint axes.}
+}
+
+@article{mcgrath2020factorgraph,
+  author  = {McGrath, Timothy and Stirling, Leia},
+  title   = {Body-Worn {IMU} Human Skeletal Pose Estimation Using a Factor Graph-Based Optimization Framework},
+  journal = {Sensors},
+  year    = {2020},
+  volume  = {20},
+  number  = {23},
+  pages   = {6887},
+  doi     = {10.3390/s20236887},
+  note    = {Factor-graph pose estimation that includes segment-length anthropometry and cross-leg length-discrepancy terms as estimated parameters.}
+}
+
+% --- Functional / sensor-to-segment calibration (magnetometer-free) -----------
+
+@article{seel2014gait,
+  author  = {Seel, Thomas and Raisch, J{\"o}rg and Schauer, Thomas},
+  title   = {{IMU}-Based Joint Angle Measurement for Gait Analysis},
+  journal = {Sensors},
+  year    = {2014},
+  volume  = {14},
+  number  = {4},
+  pages   = {6891--6909},
+  doi     = {10.3390/s140406891},
+  note    = {Joint angles from gyro+accel only (no homogeneous magnetic field) via hinge/spheroidal kinematic constraints.}
+}
+
+@inproceedings{seel2012jointaxis,
+  author    = {Seel, Thomas and Schauer, Thomas and Raisch, J{\"o}rg},
+  title     = {Joint axis and position estimation from inertial measurement data by exploiting kinematic constraints},
+  booktitle = {2012 IEEE International Conference on Control Applications (CCA)},
+  year      = {2012},
+  pages     = {45--49},
+  doi       = {10.1109/CCA.2012.6402423},
+  note      = {Identifies joint axes and joint positions (lever arms) from the kinematic constraints of hinge and spheroidal joints — the basis for solving sensor-to-joint geometry without markers.}
+}
+
+% --- Anthropometric scaling from stature (the symmetric default) --------------
+
+@article{deleva1996,
+  author  = {de Leva, Paolo},
+  title   = {Adjustments to {Zatsiorsky-Seluyanov's} segment inertia parameters},
+  journal = {Journal of Biomechanics},
+  year    = {1996},
+  volume  = {29},
+  number  = {9},
+  pages   = {1223--1230},
+  doi     = {10.1016/0021-9290(95)00178-6},
+  note    = {Standard predictive equations scaling segment lengths/inertia from stature, by gender; left/right treated as mirror-symmetric.}
+}
+
+@book{winter2009,
+  author    = {Winter, David A.},
+  title     = {Biomechanics and Motor Control of Human Movement},
+  edition   = {4th},
+  publisher = {John Wiley \& Sons},
+  year      = {2009},
+  isbn      = {9780470398180},
+  note      = {Classic anthropometric tables giving segment lengths as fractions of total body height (bilaterally symmetric).}
+}
+
+% --- Continuous rotation representation & kinematics ---------------------------
+% Backs the C⁴ Hermite rotation interpolation (spec/Sinew/Nonic.lean):
+% interpolate a continuous rotation representation, not quaternions, and recover
+% angular velocity/acceleration/jerk by the cross-product (hat/vee) map.
+
+@inproceedings{zhou2019continuity,
+  author    = {Zhou, Yi and Barnes, Connelly and Lu, Jingwan and Yang, Jimei and Li, Hao},
+  title     = {On the Continuity of Rotation Representations in Neural Networks},
+  booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  year      = {2019},
+  pages     = {5745--5753},
+  doi       = {10.1109/CVPR.2019.00589},
+  note      = {The 6D rotation representation: two 3-vectors mapped to SO(3) by Gram-Schmidt + cross product, continuous and surjective. Quaternions double-cover SO(3) and are discontinuous, so kinematics are computed in 6D rather than narrowing to quaternions.}
+}
+
+@book{murray1994robotic,
+  author    = {Murray, Richard M. and Li, Zexiang and Sastry, S. Shankar},
+  title     = {A Mathematical Introduction to Robotic Manipulation},
+  publisher = {CRC Press},
+  year      = {1994},
+  isbn      = {9780849379819},
+  note      = {The so(3) hat/vee isomorphism with the cross product: angular velocity omega = (Rdot R^T)^vee recovers the kinematic vector from the rotation-matrix derivative — how the Hermite-interpolated rotation curve yields angular velocity/acceleration/jerk.}
+}
+
+% --- Joint orientation / bone roll convention --------------------------------
+% The canonical per-bone local frame the retarget adopts (spec/Sinew/RigRest.lean,
+% spec/PlayLog.lean): local +Y runs along the bone toward the child, local +X is the
+% bend axis (positive-X rotation bends/kicks forward), +Z completes the right-handed
+% frame; arms are mirrored and legs' +Y points down.
+
+@misc{labrcsf2026,
+  author       = {Nick Porcino},
+  title        = {{LabRCSF}: A Rig and Character Skeleton Format proposal},
+  year         = {2026},
+  howpublished = {\url{https://github.com/meshula/LabRCSF}},
+  note         = {Joint-orientation convention: local +Y along the bone toward the child, local +X the primary bend axis (positive-X bends forward), +Z right-handed; spine axes align with world in neutral, legs' +Y points down, left/right arms mirrored. The retarget re-bone-rolls to this.}
+}
+
+@misc{somax2024,
+  author       = {{NVIDIA Toronto AI Lab}},
+  title        = {{SOMA-X}: Skinned multi-person body model tooling},
+  year         = {2024},
+  howpublished = {\url{https://github.com/NVlabs/SOMA-X}},
+  note         = {Source of the ANNY body model and its phenotype/skeleton pipeline ported in spec/ and viz_native/; consulted for joint-orientation and skinning conventions.}
+}
+
+% --- Alignment-free functional & optimization / model-fitting calibration -----
+% Beyond the static-pose calibration (anatomical) and the joint-axis methods above:
+% alignment-free functional calibration and full body-model fitting, which jointly
+% resolve sensor-to-bone (roll included) from the motion.  play_log currently uses
+% only the anatomical poses + a functional bend-axis pass; the optimization route
+% (fit the ANNY body to all sensors over a window) is not yet tried.
+
+@article{muller2017alignment,
+  author  = {M{\"u}ller, Philipp and B{\'e}gin, Marc-Andr{\'e} and Schauer, Thomas and Seel, Thomas},
+  title    = {Alignment-Free, Self-Calibrating Elbow Angles With Inertial Sensors},
+  journal  = {IEEE Journal of Biomedical and Health Informatics},
+  volume   = {21},
+  number   = {2},
+  pages    = {312--319},
+  year     = {2017},
+  doi      = {10.1109/JBHI.2016.2639537},
+  note     = {Self-calibrating, alignment-free joint angles from arbitrarily mounted IMUs: exploits kinematic joint constraints over the motion to recover sensor→segment orientation with no manual alignment and no calibration poses — the path to recovering the bone roll play_log's pose calibration leaves unobserved.}
+}
+
+@inproceedings{vonmarcard2017sip,
+  author    = {von Marcard, Timo and Rosenhahn, Bodo and Black, Michael J. and Pons-Moll, Gerard},
+  title     = {Sparse Inertial Poser: Automatic 3D Human Pose Estimation from Sparse IMUs},
+  booktitle = {Computer Graphics Forum (Proc. Eurographics)},
+  volume    = {36},
+  number    = {2},
+  pages     = {349--360},
+  year      = {2017},
+  doi       = {10.1111/cgf.13131},
+  note      = {Full-body pose from sparse IMUs by fitting a parametric body model to inertial orientations/accelerations over a window, jointly resolving the sensor-to-bone calibration — the sparse-IMU analogue of this viewer's tracker retarget, recreatable with the ANNY body model used here.}
+}
+
+% Dynamic (learned, continuous) on-body IMU calibration — the "no manual re-pose"
+% alternative to play_log's per-session Mⱼ; absorbs the soft-tissue drift that floors a
+% static calibration.  (Author list unverified from the preprint; cite by arXiv id.)
+@misc{transformerimucalib2025,
+  title         = {Transformer {IMU} Calibrator: Dynamic On-body {IMU} Calibration for Inertial Motion Capture},
+  year          = {2025},
+  eprint        = {2506.10580},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.CV},
+  doi           = {10.48550/arXiv.2506.10580},
+  url           = {https://doi.org/10.48550/arXiv.2506.10580},
+  note          = {Estimates a time-varying sensor-to-bone calibration continuously during ordinary motion, removing the per-session re-pose step and absorbing soft-tissue drift — the path past the static-calibration residual floor.}
+}
+
+% --- Equity / DEI in ML datasets and on-body sensing (Google) ---
+% These ground the phenotype-equity sampling: match the dataset to population representation
+% and, for on-body sensing, set per-group minimum-representation floors so the model performs
+% equitably across the spectrum (Google's heart-rate work guaranteed dark skin >= 33%).
+
+% The Monk Skin Tone scale + annotation study — Google's inclusive-representation methodology;
+% the equity model we mirror for the ANNY phenotype (recovered per AddBiomechanics subject).
+@misc{schumann2023skintone,
+  author        = {Schumann, Candice and Olanubi, Gbolahan O. and Wright, Auriel and Monk Jr., Ellis and Heldreth, Courtney and Ricco, Susanna},
+  title         = {Consensus and Subjectivity of Skin Tone Annotation for {ML} Fairness},
+  year          = {2023},
+  eprint        = {2305.09073},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.CV},
+  url           = {https://arxiv.org/abs/2305.09073},
+  note          = {Google's Monk Skin Tone scale and its annotation practice for ML fairness; the inclusive-representation precedent for stratifying a training set by a perceptual phenotype rather than by convenience. For on-body sensing Google sets per-group minimum-representation floors (light/medium >= 25\%, dark >= 33\%) so the model performs equitably across groups — equity by guaranteed representation, not population-proportional sampling.}
+}
+
+% On-device body pose tracking (Google MediaPipe BlazePose) — the motion-tracking system whose
+% demographic coverage motivates representative training data across body types.
+@article{bazarevsky2020blazepose,
+  author  = {Bazarevsky, Valentin and Grishchenko, Ivan and Raveendran, Karthik and Zhu, Tyler and Zhang, Fan and Grundmann, Matthias},
+  title   = {{BlazePose}: On-device Real-time Body Pose Tracking},
+  journal = {arXiv preprint arXiv:2006.10204},
+  year    = {2020},
+  note    = {CVPR Workshop on Computer Vision for Augmented and Virtual Reality. Google's on-device pose tracker; pose/motion accuracy varies across body types, motivating training data matched to the deployment population.}
+}
+
+% --- Normal gravity (accel-channel normalization) -----------------------------
+% Theoretical gravity on the reference ellipsoid varies with latitude, so the IMU accel
+% magnitude carries a study-location systematic; the ACCA calibration cue is the gravity
+% DIRECTION, motivating per-vector unit-normalization (slangtrain/torch/train_tic.py SINEW_ACCEL=grav).
+@article{moritz1980grs80,
+  author  = {Moritz, Helmut},
+  title   = {Geodetic Reference System 1980},
+  journal = {Bulletin G\'eod\'esique},
+  year    = {1980},
+  volume  = {54},
+  number  = {3},
+  pages   = {395--405},
+  doi     = {10.1007/BF02521480},
+  note    = {The closed-form normal-gravity formula on the GRS80 ellipsoid: theoretical gravity runs from 9.7803 m/s^2 at the equator to 9.8322 at the poles (~0.5\% range, ~0.3\% about the 9.81 mean), a per-location systematic in the accelerometer magnitude that carries no sensor-to-bone calibration signal — only the gravity direction (rotated by drift) does, so the accel channel is unit-normalized.}
+}
+
+% --- Training data source (the real normal-motion corpus) ---------------------
+% AddBiomechanics aggregates many independent OpenSim-fit studies (Carter2023, Han2023,
+% Tiziana2019, Moore2015, …); their per-study capture differences (marker protocol, frame
+% rate, capture location → local g) are the cross-study domain shift the calibrator must cross.
+% The windowed calibration parquets here are extracted from it by slangtrain/addb/b3d_to_caldata.py.
+@inproceedings{werling2024addbiomechanics,
+  author        = {Werling, Keenon and Kaneda, Janelle and others},
+  title         = {{AddBiomechanics} Dataset: Capturing the Physics of Human Motion at Scale},
+  booktitle     = {Computer Vision -- ECCV 2024},
+  year          = {2024},
+  eprint        = {2406.18537},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.CV},
+  doi           = {10.1007/978-3-031-73223-2_27},
+  url           = {https://arxiv.org/abs/2406.18537},
+  note          = {273 subjects, 70+ hours, 24M frames of OpenSim-fit human motion + force-plate data aggregated from many independent studies (Carter2023, Han2023, Tiziana2019, Moore2015, …). Their per-study capture conventions (markers, frame rate, location → local g) differ, which is the cross-study domain shift the sensor-to-bone calibrator must generalise across.}
+}
+
+% Cyclic motion alignment via a learned phase manifold.  Relevant two ways: (1) cycle-aligned
+% calibration windows — a window spanning one normalized gait cycle (vs an arbitrary 32-frame slice)
+% contains the full motion range, maximising sensor-to-bone mount observability and lowering the
+% per-window floor; (2) retargeting real motion onto ANNY phenotypes in the synthetic generator without
+% paired data.  (Author list / DOI from the project page; verify before camera-ready.)
+@inproceedings{li2024walkthedog,
+  author    = {Li, Peizhuo and Starke, Sebastian and Ye, Yuting and Sorkine-Hornung, Olga},
+  title     = {{WalkTheDog}: Cross-Morphology Motion Alignment via Phase Manifolds},
+  booktitle = {ACM SIGGRAPH 2024 Conference Papers},
+  year      = {2024},
+  doi       = {10.1145/3641519.3658304},
+  url       = {https://peizhuoli.github.io/walk-the-dog/},
+  note      = {Aligns the cyclic/periodic structure of motion across morphologies (e.g. human and dog) through a shared phase manifold, enabling motion matching without paired data. Here: defines cycle-aligned (phase-normalized) calibration windows that carry the full per-cycle motion — more mount observability per window than a fixed 32-frame slice — and supports cross-phenotype motion retargeting for the synthetic generator.}
+}

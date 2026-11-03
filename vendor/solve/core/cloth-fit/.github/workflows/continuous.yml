@@ -1,0 +1,163 @@
+---
+name: Build
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+
+env:
+    CTEST_OUTPUT_ON_FAILURE: ON
+    CTEST_PARALLEL_LEVEL: 1
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  ####################
+  # Linux
+  ####################
+
+    Linux:
+        name: ${{ matrix.name }} (${{ matrix.config }}, ${{ matrix.threading }})
+        runs-on: ${{ matrix.os }}
+        strategy:
+            fail-fast: false
+            matrix:
+                os: [ubuntu-latest]
+                config: [Release]
+                threading: [TBB]
+                include:
+                    - os: ubuntu-latest
+                      name: Linux
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4.1.6
+              with:
+                  fetch-depth: 10
+
+            - name: Dependencies
+              run: |
+                  sudo apt-get update
+                  sudo apt-get -o Acquire::Retries=3 install ccache
+                  echo 'CACHE_PATH=~/.cache/ccache' >> "$GITHUB_ENV"
+                  sudo apt-get install -y libboost-iostreams-dev libtbb-dev libblosc-dev
+
+            - name: Fetch prebuilt OpenUSD runtime
+              run: |
+                  set -euo pipefail
+                  USD_DIR="$RUNNER_TEMP/usd"
+                  mkdir -p "$USD_DIR"
+                  curl -fsSL -o "$RUNNER_TEMP/usd.tar.gz" \
+                    https://github.com/v-sekai-multiplayer-fabric/fabric-stage-runtime/releases/download/v0.1.0-dev.4/openusd-26.05-x86_64-linux-gnu.tar.gz
+                  tar xzf "$RUNNER_TEMP/usd.tar.gz" -C "$USD_DIR"
+                  echo "POLYFEM_USD_ROOT=$USD_DIR" >> "$GITHUB_ENV"
+
+            - name: Cache Build
+              id: cache-build
+              uses: actions/cache@v4
+              if: matrix.config == 'Release' # debug cache is not working
+              with:
+                  path: ${{ env.CACHE_PATH }}
+                  key: ${{ runner.os }}-${{ matrix.config }}-${{ matrix.threading }}-cache-${{ github.sha }}
+                  restore-keys: ${{ runner.os }}-${{ matrix.config }}-${{ matrix.threading }}-cache
+
+            - name: Prepare ccache
+              run: |
+                  # ccache --max-size=1.0G
+                  ccache -V && ccache --show-stats && ccache --zero-stats
+
+            - name: Configure
+              run: |
+                  mkdir -p build
+                  cd build
+                  cmake .. \
+                    -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+                    -DCMAKE_BUILD_TYPE=${{ matrix.config }} \
+                    -DCMAKE_CXX_FLAGS_DEBUGNOSYMBOLS="" \
+                    -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+                    -DPOLYFEM_THREADING=${{ matrix.threading }} \
+                    -DPOLYFEM_WITH_USD=ON \
+                    -DPOLYFEM_USD_ROOT="$POLYFEM_USD_ROOT"
+
+            - name: Build
+              run: cd build; make -j2; ccache --show-stats
+
+            - name: USD I/O round-trip test
+              run: cd build; ctest --output-on-failure -R usd
+
+  # - name: Setup tmate session
+  #   if: ${{ failure() }}
+  #   uses: mxschmitt/action-tmate@v3
+
+  ####################
+  # MacOS
+  ####################
+
+    MacOS:
+        name: ${{ matrix.os }} (${{ matrix.config }}, ${{ matrix.threading }})
+        runs-on: ${{ matrix.os }}
+        strategy:
+            fail-fast: false
+            matrix:
+                os: [macos-latest]
+                config: [Release]
+                threading: [TBB]
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4.1.6
+              with:
+                  fetch-depth: 10
+
+            - name: Dependencies
+              run: |
+                  brew install ccache
+                  echo 'CACHE_PATH=~/Library/Caches/ccache' >> "$GITHUB_ENV"
+                  brew install boost c-blosc
+                  # The pinned OpenVDB needs oneTBB 2021.x: its Threading.h takes
+                  # the tbb::task::current_context() path only when
+                  # TBB_INTERFACE_VERSION >= 12002, otherwise it uses the removed
+                  # tbb::task::self(). Homebrew's tbb is too new and drops that
+                  # symbol, so build the matching oneTBB from source (as the
+                  # Windows NIF build does) and point the build at it.
+                  git clone --depth 1 --branch v2021.9.0 \
+                      https://github.com/oneapi-src/oneTBB.git "$RUNNER_TEMP/oneTBB"
+                  cmake -S "$RUNNER_TEMP/oneTBB" -B "$RUNNER_TEMP/tbb-build" \
+                      -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF \
+                      -DTBB_TEST=OFF -DTBB_EXAMPLES=OFF -DTBB_STRICT=OFF \
+                      -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+                      -DCMAKE_INSTALL_PREFIX="$HOME/tbb-install"
+                  cmake --build "$RUNNER_TEMP/tbb-build" -j3 --target install
+                  echo "TBB_INSTALL=$HOME/tbb-install" >> "$GITHUB_ENV"
+
+            - name: Cache Build
+              id: cache-build
+              uses: actions/cache@v4
+              with:
+                  path: ${{ env.CACHE_PATH }}
+                  key: ${{ runner.os }}-${{ matrix.config }}-${{ matrix.threading }}-cache-${{ github.sha }}
+                  restore-keys: ${{ runner.os }}-${{ matrix.config }}-${{ matrix.threading }}-cache
+
+            - name: Prepare ccache
+              run: |
+                  ccache --max-size=1.0G
+                  ccache -V && ccache --show-stats && ccache --zero-stats
+
+            - name: Configure
+              run: |
+                  mkdir -p build
+                  cd build
+                  cmake .. \
+                    -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+                    -DCMAKE_BUILD_TYPE=${{ matrix.config }} \
+                    -DCMAKE_CXX_FLAGS_DEBUGNOSYMBOLS="" \
+                    -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+                    -DTBB_ROOT="$TBB_INSTALL" \
+                    -DCMAKE_PREFIX_PATH="$TBB_INSTALL" \
+                    -DTBB_USE_STATIC_LIBS=ON \
+                    -DPOLYFEM_THREADING=${{ matrix.threading }}
+
+            - name: Build
+              run: cd build; make -j2; ccache --show-stats

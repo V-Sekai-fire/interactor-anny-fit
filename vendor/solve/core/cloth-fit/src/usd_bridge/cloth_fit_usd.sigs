@@ -1,0 +1,43 @@
+# cloth_fit_usd C ABI — function declarations consumed by cloth-fit's solver
+# (libpolyfem) and NIF, which dlopen the bridge. Fed to
+# thirdparty/generate_stubs/generate_stubs.py, which emits a dlsym-backed
+# dispatch table (POSIX stubs) / delay-load .def (Windows) — no -lusd_ms at
+# link time, and therefore no transitive OpenUSD/TBB on any consumer's link line.
+#
+# Format: one C-style declaration per line. Comments start with '#'. Opaque
+# handle types come from cloth_fit_usd.h via the generated stubs' compat header.
+# Single source of truth for the exported ABI — keep in sync with cloth_fit_usd.h.
+
+# --- Lifecycle ---------------------------------------------------------
+const char* cfusd_version(void);
+int32_t cfusd_init(const char* plugin_dir);
+cfusd_mesh_t* cfusd_mesh_create(void);
+void cfusd_mesh_destroy(cfusd_mesh_t* mesh);
+
+# --- Setters -----------------------------------------------------------
+void cfusd_mesh_set_positions(cfusd_mesh_t* mesh, int32_t vertex_count, const double* xyz);
+void cfusd_mesh_set_faces(cfusd_mesh_t* mesh, int32_t face_count, const int32_t* face_vertex_counts, int32_t index_count, const int32_t* face_vertex_indices);
+void cfusd_mesh_set_uvs(cfusd_mesh_t* mesh, int32_t uv_count, const double* uv, int32_t index_count, const int32_t* uv_indices);
+void cfusd_mesh_set_normals(cfusd_mesh_t* mesh, int32_t normal_count, const double* nxyz, int32_t index_count, const int32_t* normal_indices);
+void cfusd_mesh_set_mtl_filename(cfusd_mesh_t* mesh, const char* mtl_filename);
+void cfusd_mesh_add_group(cfusd_mesh_t* mesh, const char* object_name, const char* group_name, const char* material_name, int32_t face_count, const int32_t* face_indices);
+
+# --- Getters -----------------------------------------------------------
+int32_t cfusd_mesh_get_vertex_count(const cfusd_mesh_t* mesh);
+void cfusd_mesh_get_positions(const cfusd_mesh_t* mesh, double* out_xyz);
+int32_t cfusd_mesh_get_face_count(const cfusd_mesh_t* mesh);
+int32_t cfusd_mesh_get_index_count(const cfusd_mesh_t* mesh);
+void cfusd_mesh_get_faces(const cfusd_mesh_t* mesh, int32_t* out_face_vertex_counts, int32_t* out_face_vertex_indices);
+int32_t cfusd_mesh_get_uv_count(const cfusd_mesh_t* mesh);
+void cfusd_mesh_get_uvs(const cfusd_mesh_t* mesh, double* out_uv, int32_t* out_uv_indices);
+int32_t cfusd_mesh_get_normal_count(const cfusd_mesh_t* mesh);
+void cfusd_mesh_get_normals(const cfusd_mesh_t* mesh, double* out_nxyz, int32_t* out_normal_indices);
+void cfusd_mesh_get_mtl_filename(const cfusd_mesh_t* mesh, char* out, int32_t cap);
+int32_t cfusd_mesh_get_group_count(const cfusd_mesh_t* mesh);
+void cfusd_mesh_get_group_names(const cfusd_mesh_t* mesh, int32_t group, char* out_object, int32_t object_cap, char* out_group, int32_t group_cap, char* out_material, int32_t material_cap);
+int32_t cfusd_mesh_get_group_face_count(const cfusd_mesh_t* mesh, int32_t group);
+void cfusd_mesh_get_group_faces(const cfusd_mesh_t* mesh, int32_t group, int32_t* out_face_indices);
+
+# --- I/O ---------------------------------------------------------------
+int32_t cfusd_write_usd(const cfusd_mesh_t* mesh, const char* path);
+cfusd_mesh_t* cfusd_read_usd(const char* path);
