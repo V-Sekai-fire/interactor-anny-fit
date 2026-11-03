@@ -1,0 +1,33 @@
+cff-version: 1.2.0
+message: If you use these kernels, cite LBFGSpp, whose L-BFGS-B they port.
+title: drape L-BFGS-B kernels (Lean-emitted port of LBFGSpp's L-BFGS-B)
+abstract: >-
+  lean/Drape/SlangCodegen/Lb*.lean re-state LBFGSpp 0.3.0's compact-form
+  L-BFGS-B (LBFGSB.h force_bounds, proj_grad_norm, max_step_size;
+  BFGSMat.h add_correction, apply_Mv, compute_FtBAb, solve_PtBP,
+  apply_PtBQv, apply_PtWMv; Cauchy.h get_cauchy_point; SubspaceMin.h
+  subspace_minimize) as LeanSlang compute kernels; lake exe emit_drape
+  writes them as Slang into slang/, and gen.sh compiles them to cpp/ (the
+  in-guest CPU path) and SPIR-V (the GPU path). No LBFGSpp source is copied;
+  the algorithm, its step order, its tie rules and its fallbacks are
+  followed. Local adaptations: float32 with df32 (double-float) accumulation
+  of the n-length sums instead of double; M·v through the Cholesky factor of
+  the Schur complement T = theta*SS + L*inv(D)*L' instead of a Bunch-Kaufman
+  LDLT of the permuted M^-1, and (P'BP)^-1 through Cholesky factors of A11 =
+  D + Y_P'Y_P/theta and of its Schur complement instead of Bunch-Kaufman on
+  the whole middle matrix, with S'S - S_P'S_P and the lower part of L -
+  S_P'Y_P summed over the coordinates outside P instead of subtracted;
+  std::sort replaced by an in-kernel heapsort; +inf replaced by FLT_MAX
+  (bounds at or beyond 1e30 in magnitude are absent); the curvature filter
+  s'y > eps*y'y evaluated on the device (lb_compact) so the ring store needs
+  no readback; the P'BL and P'BU terms applied as one M product; and the
+  Cauchy point's last step skipped when no coordinate is left moving (p is
+  exactly zero there, rounding residue in float). Verified against the
+  host-native LBFGSpp fixtures in gates/5-drape/oracle by
+  tests/drape_kernels (gates/5-drape/kernels).
+type: software
+authors:
+  - name: Yixuan Qiu
+repository-code: https://github.com/V-Sekai-fire/interactor-aria-lbfgspp
+commit: 10086b6b2022802d7942ba16842c43063b3cff91
+license: MIT

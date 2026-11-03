@@ -1,0 +1,123 @@
+"""Bake the SOMA phenotype→shape pipeline's constant arrays into a binary asset
+(soma_pheno.bin) + a C header of dims/offsets (soma_pheno.h), so the native viewer
+can recompute the body from the 11-dim phenotype with no Python and no ONNX runtime.
+
+    pixi run -e export python solve/adapters/bake/make_pheno.py
+
+The blendshape tensor (~102 MB) is too large for a C header, so everything ships as
+one little-endian binary the viewer mmaps at startup.  A small golden (v0 + bind_world
+for one phenotype) is written for the C self-test.  Verified: ident→v0 matches SOMA
+exactly, v0→bind_world matches the warp golden to ~1.8e-5.
+"""
+import struct
+
+import numpy as np
+import torch
+from soma import SOMALayer
+
+OUT_BIN, OUT_H, OUT_GOLD = "viewer/assets/soma_pheno.bin", "solve/core/soma_pheno.h", "viewer/assets/soma_pheno_golden.bin"
+
+
+def effective_blend(am):
+    """The 624 phenotype blendshapes the host sums with its 624 weights. A compact ANNY (phenotype_blendshape_projection,
+    624 x n) keeps only n of them and the model uses wi @ projection as coefficients of those n, so the 624 weights
+    scale rows of projection @ blendshapes[:n]."""
+    proj = getattr(am, "phenotype_blendshape_projection", None)
+    if proj is None:
+        return am.blendshapes[:624]
+    n = proj.shape[1]
+    b = am.blendshapes[:n]
+    return (proj @ b.reshape(n, -1)).reshape(proj.shape[0], *b.shape[1:])
+
+
+# The bake keeps ANNY's whole local-change set (254 sliders, as entities-anny-creator exposes it). SOMA-X narrows ANNY at its own stage:
+# its AnnySimplified wrapper (soma/body/identity_model.py) drops every label containing one of these words (115 of the 254) and keeps
+# 139. local_labels.txt marks which ones SOMA-X keeps, so a fit can stay wide or narrow at the SOMA-X stage without a rebake.
+SOMA_IGNORE = ["mouth", "eye", "nipple", "cheek", "chin", "ear", "lip", "nose"]
+
+
+def kept_local_labels(am):
+    return list(enumerate(am.local_change_labels))
+
+
+def soma_keeps(label):
+    return not any(w in label for w in SOMA_IGNORE)
+
+
+def local_rows(am):
+    """The blendshape rows of the kept sliders: relu(v) at row 2i and relu(-v) at row 2i+1 after the 310 compact phenotype rows."""
+    base = am.phenotype_blendshape_projection.shape[1]
+    rows = []
+    for i, _ in kept_local_labels(am):
+        rows.append(am.blendshapes[base + 2 * i].numpy())
+        rows.append(am.blendshapes[base + 2 * i + 1].numpy())
+    return np.stack(rows)
+
+
+def main():
+    L = SOMALayer(identity_model_type="anny", device="cpu", mode="torch",
+                  enable_procedural_transforms=False).eval()
+    im, st = L.identity_model, L.skeleton_transfer
+    am, bi = im.identity_model.anny_model, im._to_soma_interp
+
+    arrays = {
+        "template": am.template_vertices.numpy().astype(np.float32),       # (P,3)
+        "blend":    np.concatenate([effective_blend(am).numpy(), local_rows(am)]).astype(np.float32),   # (624 phenotype + 2 x local-change sliders, P, 3)
+        "mask":     am.stacked_phenotype_blend_shapes_mask.numpy().astype(np.float32),  # (624,26)
+        "F_src":    bi.F_src_torch.numpy().astype(np.int32),               # (NFS,3)
+        "F_tet":    bi.F_src_tet.numpy().astype(np.int32),                 # (NFS,4)
+        "bary":     bi.bary_coords.numpy().astype(np.float32),             # (V,4)
+        "fids":     bi.face_ids.numpy().astype(np.int32),                  # (V,)
+        "BW":       st.bind_world_transforms.numpy().astype(np.float32),   # (J,4,4) base bind
+        "BSh":      st.bind_shape.numpy().astype(np.float32),              # (V,3) base shape
+        "SW":       st.skinning_weights.numpy().astype(np.float32),        # (V,J)
+        "par":      np.array(list(st.joint_parent_ids), np.int32),         # (J,)
+    }
+    open("viewer/assets/local_labels.txt", "w").write("\n".join(f"{l}\t{int(soma_keeps(l))}" for _, l in kept_local_labels(am)) + "\n")
+    csr = st.sparse_rbf_matrix.to_sparse_csr()
+    arrays["rbf_crow"] = csr.crow_indices().numpy().astype(np.int32)       # (J+1,)
+    arrays["rbf_col"] = csr.col_indices().numpy().astype(np.int32)         # (nnz,)
+    arrays["rbf_val"] = csr.values().numpy().astype(np.float32)            # (nnz,)
+
+    P = arrays["template"].shape[0]
+    V = arrays["BSh"].shape[0]
+    J = arrays["BW"].shape[0]
+    NFS = arrays["F_src"].shape[0]
+    NNZ = arrays["rbf_val"].shape[0]
+    NLOC = len(kept_local_labels(am))
+    assert arrays["blend"].shape == (624 + 2 * NLOC, P, 3), arrays["blend"].shape
+
+    # write the .bin (declared order) and record byte offsets
+    order = ["template", "blend", "mask", "F_src", "F_tet", "bary", "fids",
+             "BW", "BSh", "SW", "par", "rbf_crow", "rbf_col", "rbf_val"]
+    off, blob = {}, bytearray()
+    for k in order:
+        off[k] = len(blob)
+        blob += arrays[k].tobytes()
+    with open(OUT_BIN, "wb") as f:
+        f.write(blob)
+
+    with open(OUT_H, "w") as f:
+        f.write("// AUTO-GENERATED by solve/adapters/bake/make_pheno.py — dims + byte offsets into soma_pheno.bin.\n")
+        f.write("// Regenerate: pixi run -e export python solve/adapters/bake/make_pheno.py\n#pragma once\n\n")
+        f.write(f"#define PH_P {P}\n#define PH_V {V}\n#define PH_J {J}\n")
+        f.write(f"#define PH_NPH 624\n#define PH_NLOC {NLOC}\n#define PH_NB {624 + 2 * NLOC}\n#define PH_NVAR 26\n#define PH_NFS {NFS}\n#define PH_NNZ {NNZ}\n")
+        f.write(f"#define PH_BIN_BYTES {len(blob)}\n\n")
+        for k in order:
+            f.write(f"#define PH_OFF_{k} {off[k]}\n")
+    print(f"wrote {OUT_BIN} ({len(blob)/1e6:.1f} MB), {OUT_H}  P={P} V={V} J={J} NFS={NFS} NNZ={NNZ}")
+
+    # golden for the C self-test: ident + v0 + bind_world
+    ident = [0.0, 1.0, 0.1, 0.9, 0.0, 1.0, 0.5, 0.5, 0, 1, 0]
+    with torch.no_grad():
+        v0 = im(torch.tensor([ident], dtype=torch.float32), {}, None, 1.0)[0].numpy().astype(np.float32)
+        bw = st.fit(torch.tensor(v0)).numpy().astype(np.float32)
+    with open(OUT_GOLD, "wb") as f:
+        f.write(struct.pack("<11f", *ident))
+        f.write(v0.tobytes())
+        f.write(bw.tobytes())
+    print(f"wrote {OUT_GOLD} (ident + v0[{v0.shape}] + bind_world[{bw.shape}])")
+
+
+if __name__ == "__main__":
+    main()

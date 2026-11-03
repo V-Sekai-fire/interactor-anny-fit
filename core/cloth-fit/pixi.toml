@@ -1,0 +1,43 @@
+# Local build environment. cmake, ninja and python come from here so the build is
+# reproducible; the C++ compiler is llvm-mingw from the desk, which is also the
+# toolchain CI ships with, so a local binary and a published one are built the
+# same way. Point LLVM_MINGW elsewhere to use a different install.
+[workspace]
+name = "cloth-fit"
+channels = ["conda-forge"]
+platforms = ["win-64", "linux-64", "osx-arm64"]
+
+[dependencies]
+cmake = ">=3.31,<4"
+ninja = ">=1.12"
+python = ">=3.11"
+# OpenVDB's own requirements. CI takes these from apt and brew; on a desk they
+# come from here, which is also why the environment is pinned rather than assumed.
+libboost-devel = ">=1.84"
+blosc = ">=1.21"
+pkg-config = "*"
+zlib = ">=1.2.13"
+# The pinned OpenVDB takes the tbb::task::current_context() path only when
+# TBB_INTERFACE_VERSION >= 12002, and newer oneTBB drops the symbol it falls back
+# to, so the 2021 line is the one that compiles. CI builds v2021.9.0 from source
+# for the same reason.
+tbb-devel = ">=2021.9,<2022"
+
+[tasks]
+# OpenVDB's blosc and zlib are off to match what the NIF workflow already passes:
+# they are the last two non-system DLLs the binaries import, and without them a
+# built executable runs from anywhere rather than only inside this environment.
+#
+# MKL is off because its static libraries are MSVC-built and pull libmsvcprt,
+# which llvm-mingw has no equivalent for; the solver list in a setup falls back
+# from Eigen::PardisoLDLT to Eigen::SimplicialLDLT on its own.
+#
+# LLVM_MINGW is resolved here rather than in activation.env, which does not expand
+# $USERPROFILE and would hand CMake the literal string. The toolchain also goes on
+# PATH because dependencies invoke some of its tools by bare name -- oneTBB calls
+# windres, which llvm-mingw ships. Passing -DCMAKE_RC_COMPILER instead does not
+# work: CMake writes the path into a set() verbatim, and $USERPROFILE is
+# backslashed, so C:\Users reads as the invalid escape \U.
+configure = { cmd = "cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DPOLYSOLVE_WITH_CHOLMOD=OFF -DPOLYSOLVE_WITH_MKL=OFF -DUSE_BLOSC=OFF -DUSE_ZLIB=OFF -DCMAKE_PREFIX_PATH=$CONDA_PREFIX/Library -DCMAKE_C_COMPILER=$LLVM_MINGW/bin/x86_64-w64-mingw32-clang.exe -DCMAKE_CXX_COMPILER=$LLVM_MINGW/bin/x86_64-w64-mingw32-clang++.exe -DLIBM_LIBRARY=$LLVM_MINGW/x86_64-w64-mingw32/lib/libm.a", env = { LLVM_MINGW = "$USERPROFILE/llvm-mingw/llvm-mingw-20260826-ucrt-x86_64", PATH = "$USERPROFILE/llvm-mingw/llvm-mingw-20260826-ucrt-x86_64/bin;$PATH" } }
+build = { cmd = "cmake --build build", env = { PATH = "$USERPROFILE/llvm-mingw/llvm-mingw-20260826-ucrt-x86_64/bin;$PATH" } }
+ctest = "ctest --test-dir build --output-on-failure"

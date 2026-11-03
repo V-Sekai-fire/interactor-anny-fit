@@ -1,0 +1,49 @@
+cff-version: 1.2.0
+message: If you use this code, cite it and the sources it consolidates.
+title: contract-rotation-star, the rotational-star Kabsch rotation solver
+abstract: >-
+  The workspace's single home of the rotational-star solver: a frame as 7
+  points (origin plus the 6 unit-axis ends), rotations recovered by Kabsch
+  point-set matching (one-sided Jacobi SVD of the cross-covariance) with the
+  canonical minimal-twist completion in the rank-1 case, and the swing-twist
+  split built from that completion. Lean 4 specification with proofs and
+  Plausible properties, LeanSlang emitters for the star_kabsch and
+  swing_twist kernels (Slang, C++, SPIR-V), and a C port tested against a
+  Lean oracle. Consolidated from:
+  (1) V-Sekai-fire/contract-swing-twist-kusudama at
+  1dda34616722be2857484106727b478c81f400be, KusKabsch.lean: the rank-1
+  completion (frameOf, rod, canonCompletion, the get_any_perpendicular-style
+  anyCompletion contrast) and its two Plausible checks, moved to
+  RotationStar.Completion and RotationStar.Props with the same cases and
+  tolerances;
+  (2) V-Sekai-fire/contract-sinew-align at
+  62f5a3eeeff38254647ec04a2f8bad41f595f5bb, lean/Sinew/Sinew/Align.lean
+  (rodrigues, det9, mul9, transpose9, ns30, regularize, valid9, jacobi9,
+  kabsch, finishAlign, align; the sinew-mocap/solve spec) moved unchanged to
+  RotationStar.Align, the V3/M3 shapes of Math.lean to RotationStar.Vec, and
+  vendor/sinew-align/sinew_align.c (V-Sekai-fire/interactor-gyre's
+  transcription) moved to c/rotation_star.c with sinew_ renamed rs_ and
+  kabsch renamed rs_kabsch_eig; AlignTest.lean's oracle (a 120-degree turn
+  at N = 5, 2, 1, to 1e-4) is kept in the C test;
+  (3) V-Sekai-fire/entities-godot, scene/3d/ik_kabsch_6d.cpp at
+  1a5809420244126ad51ffc866216e23196d6da63 (MIT, Godot Engine
+  contributors): the one-sided Jacobi svd3, set_cross and the rank
+  completions, re-stated in RotationStar.Kabsch without Godot code; the rank-1
+  branch here takes V's free axes from frameOf v0 instead of Jacobi, so the
+  antipodal pick no longer depends on rounding;
+  (4) V-Sekai-fire/contract-anny-kernels branch dev/soma-gpu-pose at
+  dbe40197bff28c282cf2cd4b50cc87f3191bd105,
+  lean/Anny/SlangCodegen/SomaCommon.lean swingTwistAngle: moved to
+  RotationStar.Slang.Split with an identical emitted text; the helpers it
+  needs from Anny.SlangCodegen.Common and from V-Sekai-fire/contract-lbfgsb
+  (5fe35817f02b4ad7bc552556295d4636af65cea6, lean/Drape/SlangCodegen/Dsl.lean)
+  are copied to RotationStar.Slang.Dsl. Pins: lean-toolchain
+  leanprover/lean4:v4.34.1; LeanSlang V-Sekai-fire/contract-lean-slang
+  60532aef8ed70cc669ecab481182d0636c9e1ac3; plausible V-Sekai-fire/plausible
+  v4.34.0 (118aa17ee84656b8bd727fef7c458ee8c833385c); slangc 2026.13.
+type: software
+authors:
+  - family-names: Lee
+    given-names: K. S. Ernest (iFire)
+repository-code: https://github.com/V-Sekai-fire/contract-rotation-star
+license: MIT

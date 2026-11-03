@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  merge_group:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    steps:
+      # solve links mount_drift's vkc_core via add_subdirectory(../mount_drift),
+      # so the sibling must sit beside this repo in the workspace.
+      - uses: actions/checkout@v4
+        with:
+          path: solve
+      - uses: actions/checkout@v4
+        with:
+          repository: sinew-mocap/mount_drift
+          path: mount_drift
+          token: ${{ secrets.SINEW_CI_TOKEN || github.token }}
+
+      - name: Configure
+        run: cmake -S solve -B build -DSINEW_TESTS=ON -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      # solve_core self-skips without the private baked soma_pheno.h, and the
+      # cluster ships no unit tests; --no-tests=ignore keeps that from failing.
+      - name: Test
+        run: ctest --test-dir build -C Release --output-on-failure --no-tests=ignore
+
+  imu-to-body:
+    name: imu_to_body self-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install numpy
+      - run: python adapters/imu_to_body.py --self-test
+
+  lean-spec:
+    name: lean imu_to_body spec
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: leanprover/lean-action@v1
+        with:
+          lake-package-directory: core/spec
+          build-args: imu_to_body_test
+      - run: cd core/spec && ~/.elan/bin/lake exe imu_to_body_test | tee /dev/stderr | grep -qx OK

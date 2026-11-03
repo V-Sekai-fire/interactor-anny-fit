@@ -1,0 +1,31 @@
+[
+  {
+    "pointer": "/",
+    "default": null,
+    "type": "object",
+    "optional": ["level"],
+    "doc": "Setting for the output log."
+  },
+  {
+    "pointer": "/level",
+    "type": "int",
+    "min": 0,
+    "max": 6,
+    "doc": "Level of logging, 0 trace, 1 debug, 2 info, 3 warning, 4 error, 5 critical, and 6 off."
+  },
+  {
+    "pointer": "/level",
+    "default": "debug",
+    "type": "string",
+    "options": [
+      "trace",
+      "debug",
+      "info",
+      "warning",
+      "error",
+      "critical",
+      "off"
+    ],
+    "doc": "Level of logging."
+  }
+]
