@@ -1,0 +1,34 @@
+# weftfit_retarget C ABI — the garment-retargeting solve, exposed as a dlopen
+# bridge so consumers (the Elixir NIF / CLI, the viewer, other language bindings)
+# link ZERO PolyFEM/TBB. The SHARED bridge (weftfit_retarget.cpp) is the only unit
+# that links libpolyfem + the garment core; it exports only this extern "C"
+# surface (everything PolyFEM/Eigen/TBB stays hidden). Fed to
+# thirdparty/generate_stubs/generate_stubs.py, which emits a dlsym-backed dispatch
+# table (POSIX) / import lib (Windows) — the same mechanism as cloth_fit_usd.
+#
+# Format: one C declaration per line; comments start with '#'. Opaque handle types
+# come from weftfit_retarget.h via the generated stubs' compat header. Single
+# source of truth for the exported ABI — keep in sync with weftfit_retarget.h.
+#
+# Mirrors the current NIF simulate(config, output_dir) surface (v1: the bridge
+# reads inputs + writes per-step output through the config's paths/format, obj or
+# usd). v2 will add wf_mesh_source / wf_mesh_sink vtables so I/O is driven through
+# the weftfit ports (the obj/stage adapters) instead of file paths — see
+# weftfit/retarget ports/mesh_{source,sink}.h.
+
+# --- Lifecycle / info --------------------------------------------------
+const char* wf_retarget_version(void);
+
+# --- Solve -------------------------------------------------------------
+# Run a full garment retarget from a setup JSON config, writing per-step output
+# (step_garment_*, step_avatar_*, source/target skeletons, projected/target
+# avatar) into output_dir in the config's output.format ("obj" or "usd", the
+# latter through the cloth_fit_usd bridge). Meshes are normalized into the
+# canonical Godot frame (see coordinate_system.hpp). Returns 0 on success,
+# non-zero on failure; wf_retarget_last_error() carries the message.
+int32_t wf_retarget_run(const char* config_json, const char* output_dir);
+const char* wf_retarget_last_error(void);
+# Result JSON from the most recent successful wf_retarget_run on this thread
+# (status, output_path, timing, iterations, vertex counts). Empty string if the
+# last run failed. Static thread-local storage; valid until the next call.
+const char* wf_retarget_last_result(void);

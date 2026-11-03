@@ -1,0 +1,128 @@
+cff-version: 1.2.0
+message: If you use this code, cite the DiffCloth / cloth-dynamics simulation it ports.
+title: drape.elf simulation and backward (ported)
+abstract: >-
+  The drape's forward step, its scene builders, its collision primitives and
+  its backward pass are ports of the DiffCloth simulation as it stands on the
+  AVBD path of cloth-dynamics-standalone (references; line numbers at that
+  commit), rewritten without Eigen over AvbdCpu / AvbdRd (guest/avbd).
+
+
+  drape_sim.h: Simulation::step() (Simulation.cpp:1185-2106), AVBD path only:
+  the inertial predictor from fillForces (245-305, f_ext = m g + wind as
+  float) and the damped AVBD predictor (1245-1300); friction as a
+  tangent-only predictor blend (1302-1392), with upstream's per-vertex
+  isInContact bootstrap, which runs every step because the triangle contact
+  list it prefers is never filled on the AVBD path; updateState, iters solver
+  iterations and the optional dual updates (1408-1520); the write-back
+  v = (x_avbd - x)/h (1818-1842); primitive projection, the relative-velocity
+  response and the frictionSensitivity records (1845-1931); the
+  self-collision scan and symmetric push, up to selfPasses passes (1932-2020).
+  Adapted: the step is staged so a GPU submit ends a host frame (AGENTS.md
+  rule 4); the record also keeps what the recompute backward modes need; the
+  push log is a flat array.
+
+
+  drape_config.h: AvbdConfig (76-156), the same knobs and defaults; relax < 1,
+  bwdIft and the CPU self-collision hash are refused.
+
+
+  drape_scene.*: getInitParticlePos (2383-2392), createClothMeshFromConfig
+  (3196-3320, triangles (c, b, a)), createClothMeshFromModel with
+  keepOriginalScalePoint (2759-2830), createConstraints /
+  createBendingConstraints (2653-2715), updateCollisionRadii (3015-3040),
+  updateAreaMatrix / updateMassMatrix (3440-3505), initScene's
+  PLANE_AND_SPHERE (2426, 2487-2497), rotatePointsAccordingToConfig
+  (Simulation.h:711-743) with axisToRotation (UtilityFunctions.h:62-73) as
+  Eigen's AngleAxis builds it; Triangle's inv_deltaUV and area_rest
+  (Triangle.cpp:498-511) and AVBD upload weight area*k (Triangle.h:181-195);
+  TriangleBending's cotangent weights, float, and n from them
+  (TriangleBending.cpp:186-225) with the weight k*3/(A0+A1)
+  (TriangleBending.h:61-79); AttachmentSpring's k (AttachmentSpring.h:96-103);
+  the sphere demo's fabric and scene (OptimizationTaskConfigurations.cpp:
+  102-117, 239-257; OptimizationTaskSetup.cpp:224-229).
+
+
+  primitives.*: Sphere, Plane and Capsule isInContact (Primitive.cpp:95-156,
+  241-275, 576-608) and the helpers of Primitive.h:190-232. Added: the
+  projection Jacobians the recompute backward uses.
+
+
+  drape_backward.h: MATCH_TRAJECTORY of calculateLossAndGradient
+  (3854-3903); the native mode ports runBackwardTask's AVBD branch
+  (4495-4795: truncation K, gradient clipping, dL/dv = 0, the dL/dmu carry
+  added twice per step as upstream does), stepBackwardAvbd (2107-2382, the
+  friction adjoint from the previous record's frictionSensitivity) and the
+  per-type aggregation of AvbdBackwardShim.cpp. The step and unrolled modes
+  are new: they recompute each step and chain through contact, friction and
+  self-collision.
+
+
+  lbfgsb.*: LBFGSpp 0.3.0's LBFGSBSolver::minimize (LBFGSB.h: force_bounds,
+  the initial Cauchy direction, the pathological-direction reset, the
+  gradient, delta and iteration tests) and LineSearchMoreThuente
+  (LineSearchMoreThuente.h: the bracket update, step_selection with its
+  cubic and quadratic minimizers, the step_max and max_linesearch exits),
+  as scalar control flow in reverse communication. Every vector and matrix
+  operation is a Lean-emitted kernel (kernels/drape) through vec_cpu /
+  vec_rd. Adapted: float32 vectors with double scalars; x_lo and grad_lo
+  are copies (XLO/GLO) instead of swaps; a non-positive pivot in lb_compact's
+  Cholesky resets the BFGS memory, as LBFGSpp does on a pathological
+  direction; g.d at a trial point is a device dot; a trial point is clamped
+  to the box (in float32 a bound-limited step can land one ulp past the
+  bound, where LBFGSpp's double lands on it).
+
+
+  inverse_min.h: cloth-dynamics' test_avbd_inverse_min.cpp (src/code/
+  slang_solver, 4 vertices, 4 chained steps, the k_tri case and the
+  (k_bend, density) case, their synthetic targets, starts and clamps, the
+  zero-gradient falsifiability arm) as a staged objective over AvbdCpu or
+  AvbdRd. Adapted: the two cases share one upload (density 1 in the first
+  gives upstream's masses bit for bit); the parameters are driven by the
+  in-guest L-BFGS-B instead of upstream's backtracking gradient descent, and
+  checked against LBFGSpp on the same objective compiled for the host
+  (tests/inverse_min_oracle).
+
+
+  kNativeSphereMu0 (drape_scene.h): the sphere demo's seed-1 initial mu as
+  OptimizeHelper::getRandomParam draws it (OptimizeHelper.cpp:338-345,
+  471-481; srand(1), Eigen's setRandom on the UCRT rand()).
+type: software
+authors:
+  - name: V-Sekai-fire
+  - name: chibifire
+repository-code: https://github.com/V-Sekai-fire/interactor-dress-on
+license:
+  - Apache-2.0
+  - MIT
+references:
+  - type: software
+    title: LBFGSpp (LBFGSB.h, LineSearchMoreThuente.h; v0.3.0)
+    authors:
+      - name: Yixuan Qiu
+    repository-code: https://github.com/V-Sekai-fire/interactor-aria-lbfgspp
+    commit: 10086b6b2022802d7942ba16842c43063b3cff91
+    license: MIT
+  - type: software
+    title: cloth-dynamics-standalone (DiffCloth on AVBD; Simulation.cpp, Primitive.cpp, AvbdBackwardShim.cpp)
+    authors:
+      - name: V-Sekai
+      - name: Yifei Li
+    repository-code: https://github.com/v-sekai/TOOL_cloth_dynamics
+    commit: e361584c6e52a1b6f2635b93a8dff80eafc00052
+    license: MIT
+  - type: article
+    title: "DiffCloth: Differentiable Cloth Simulation with Dry Frictional Contact"
+    authors:
+      - family-names: Li
+        given-names: Yifei
+      - family-names: Du
+        given-names: Tao
+      - family-names: Wu
+        given-names: Kui
+      - family-names: Xu
+        given-names: Jie
+      - family-names: Matusik
+        given-names: Wojciech
+    journal: ACM Transactions on Graphics
+    year: 2022

@@ -1,0 +1,22 @@
+# The drape kernels (Cut 5), by their Lean/Slang module names, each with the
+# targets it is compiled for:
+#   both   cpp (the in-guest CPU path) and spirv (the GPU path over rd_compute)
+#   spirv  groupshared + barrier, which slangc -target cpp rejects
+#   cpp    the one-thread *_serial sibling such a kernel needs on the CPU path
+# L-BFGS-B, in the order a minimize iteration dispatches them:
+lb_box_project both
+lb_pg_inf spirv
+lb_pg_inf_serial cpp
+lb_step_max spirv
+lb_step_max_serial cpp
+lb_multi_dot spirv
+lb_multi_dot_serial cpp
+lb_compact both
+lb_ring_store both
+lb_apply_m both
+lb_cauchy both
+lb_subspace both
+# Reused from lean/Cloth (line search x = xp + step*d, and g.d):
+saxpby both
+dot_reduce spirv
+dot_reduce_serial cpp

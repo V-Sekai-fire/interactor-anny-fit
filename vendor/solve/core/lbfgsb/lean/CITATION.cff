@@ -1,0 +1,52 @@
+cff-version: 1.2.0
+message: If you use this code, cite the cloth-dynamics Lean tree it is vendored from.
+title: cloth-dynamics Lean kernel emitters (vendored)
+abstract: >-
+  The lean/ tree of cloth-dynamics (TOOL_cloth_dynamics), added here as a
+  squashed git subtree. Cloth.SlangCodegen.* builds 41 compute kernels as
+  LeanSlang modules, among them the 24 AVBD kernels listed in
+  kernels/avbd/kernels.txt (VBD init, gathers and solve/apply, the spring,
+  attachment, membrane and bending forces with their augmented-Lagrangian
+  dual updates, the self-collision scan and the ten backward kernels) that
+  kernels/avbd/gen.sh compiles to cpp for AvbdCpu and to SPIR-V for AvbdRd;
+  the rest are the PD/CG kernels (projections, saxpby, spmv, dot reductions,
+  df32 variants). Cloth.Avbd.* states the AVBD specs (CSR
+  adjacency, colouring, spring Hessian adjoint) with native_decide fixtures
+  and plausible properties. lake exe emit_shaders writes every kernel's
+  Slang; lake exe csr_falsify runs the plausible-witness-dag ladder over the
+  CSR and colouring properties. Source commit e361584 is on branch
+  feature/vulkan-avbd-windows-backend of the V-Sekai-fire fork. Pins:
+  lean-toolchain leanprover/lean4:v4.34.1; LeanSlang
+  V-Sekai-fire/contract-lean-slang branch emit-fp
+  (60532aef8ed70cc669ecab481182d0636c9e1ac3, pinned by SHA; e0e96da plus the additive
+  litFloatExact/litDoubleExact, with every consumer's emission unchanged);
+  plausible V-Sekai-fire/plausible v4.34.0
+  (a456461b368b71d2accd95234832cd9c174b5437); plausible-witness-dag
+  V-Sekai-fire/plausible-witness-dag
+  160b94c9c6eed3bb9ebffce919fc6f989dcafba8. Adapted here: plausible and
+  plausible-witness-dag are fetched from the V-Sekai-fire forks instead of
+  leanprover-community/plausible and fire/plausible-witness-dag, and
+  plausible-witness-dag is pinned by SHA instead of following main; those
+  two manifest revs are unchanged. LeanSlang is moved from lean-slang
+  v0.0.5 (813d6c62b298bcd3f7177264179a7e1d16bd87cd) to emit-fp, which is
+  v0.0.6 plus the half and double scalars and the litHalf, litInt and cast
+  expressions (additive; the AVBD emission is byte-identical), and not to
+  main, whose libslang FFI extern_lib default target breaks lake exe on
+  Windows. No upstream Lean source is modified. Added here, not upstream:
+  Probes.* (HalfLoad, Set0), Probes.lean, EmitProbes.lean and the Probes
+  lib and emit_probes exe in lakefile.lean, the Gate 0F probe kernels of
+  interactor-dress-on (gates/0f-runtime); Drape.lean, Drape/ (the drape
+  L-BFGS-B kernels, a port of LBFGSpp's algorithm; see
+  kernels/drape/CITATION.cff), EmitDrape.lean, and the lean_lib Drape and
+  lean_exe emit_drape entries in lakefile.lean; Fit.lean, Fit/ (fit.elf's
+  SDF spline kernel, a re-statement of the openvdb fork's
+  SplineSampler::sampleHessian; see kernels/fit/CITATION.cff), EmitFit.lean,
+  and the lean_lib Fit and lean_exe emit_fit entries in lakefile.lean.
+type: software
+authors:
+  - name: K. S. Ernest (Fire) Lee
+  - name: Yifei Li
+  - name: V-Sekai
+repository-code: https://github.com/V-Sekai-fire/TOOL_cloth_dynamics
+commit: e361584c6e52a1b6f2635b93a8dff80eafc00052
+license: MIT

@@ -1,0 +1,3 @@
+# solve/ports — sibling repos to clone side-by-side in ~/.
+#
+# build (link): mount_drift   # vkc_core — the Vulkan compute host the LBS runs on
